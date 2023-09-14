@@ -176,6 +176,7 @@ EOT
 #standard_rolesanywhere_profile_name = "standard-user-profile-<name>"
 #npe_role_name = "npe-client-role-<name>"
 #npe_rolesanywhere_profile_name = "npe-client-profile-<name>"
+#s3_bucket_name = "iam-ra-demo-<name>"
 
 cert_common_names_priv_users = [
 	"LASTNAME.FIRSTNAME.MIDDLENAME.<EDIPI-1>",

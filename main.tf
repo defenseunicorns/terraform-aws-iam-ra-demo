@@ -103,3 +103,56 @@ resource "aws_iam_role_policy_attachment" "npe-attach" {
   role       = aws_iam_role.npe_client.name
   policy_arn = aws_iam_policy.policy.arn
 }
+
+resource "aws_s3_bucket" "demo-bucket" {
+  bucket  = var.s3_bucket_name # Override with your desired bucket name
+}
+
+resource "aws_s3_bucket_policy" "set-policy" {
+  bucket = aws_s3_bucket.demo-bucket.id
+
+  policy = data.aws_iam_policy_document.allow_access_from_roles.json
+}
+
+data "aws_iam_policy_document" "allow_access_from_roles" {
+  statement {
+    sid = "Statement1"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = [aws_iam_role.npe_client.arn, aws_iam_role.standard_user.arn]
+    }
+
+    actions = [
+      "s3:GetObject",
+      "s3:GetObjectAttributes",
+      "s3:ListBucket",
+      "s3:ListBucketVersions",
+      "s3:PutObject"
+    ]
+
+    resources = [
+      aws_s3_bucket.demo-bucket.arn,
+      "${aws_s3_bucket.demo-bucket.arn}/*",
+    ]
+  }
+  statement {
+    sid = "Statement2"
+    effect = "Deny"
+
+    principals {
+      type        = "AWS"
+      identifiers = [aws_iam_role.npe_client.arn]
+    }
+
+    actions = [
+      "s3:DeleteObject"
+    ]
+
+    resources = [
+      aws_s3_bucket.demo-bucket.arn,
+      "${aws_s3_bucket.demo-bucket.arn}/*",
+    ]
+  }
+}
