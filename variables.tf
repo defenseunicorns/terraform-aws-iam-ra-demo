@@ -84,5 +84,5 @@ variable "npe_rolesanywhere_profile_name" {
 variable "s3_bucket_name" {
   description = "Name of the S3 bucket to allow to write to"
   type        = string
-  default     = "iam-ra-demo"
+  default     = "iam-rolesany-demo"
 }
