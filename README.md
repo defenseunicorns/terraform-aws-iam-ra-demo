@@ -24,3 +24,19 @@ This project is to stand up an example of using AWS IAM Roles Anywhere to suppor
   - Enter actual user CAC PIV cert data for the CN's you want to use
   - Uncomment any overrides on the name of artifacts create to avoid naming collisions
 - Update the data.tf to update any of the trust relationship specs or add/change custom created certs to the 'npe_role_trust_relationship_clients' x509Subject/CN to match on
+
+## How to test the deployed trusts, roles, and profiles with the created S3 bucket and policy
+
+- Get the AWS IAM Roles Anywhere signing helper to use with the NPE and CAC certs
+  - https://docs.aws.amazon.com/rolesanywhere/latest/userguide/credential-helper.html
+  - https://github.com/aws/rolesanywhere-credential-helper
+- Place the NPE cert and private key (aws-client1-cert.pem, aws-client1-private.pem) in a directory to reference later
+- Use the included script (gen_iam_ra_congit.sh) which will add the references to run the signing helper for both NPE and CAC test scenarios to the AWS config file
+- Test the NPS with:
+  - aws-vault conneect into the given AWS account
+  - aws s3 ls --profile npe_test
+  - aws s3api put-object --bucket iam-rolesany-demo --key npe-test-file --body ./test-file --profile npe_test
+  - Test the CAC with:
+  - Find which cert is the PIV cert with: pkcs15-tool --list-certificates --verbose
+  - aws s3 ls --profile cac_test
+  - aws s3api put-object --bucket iam-rolesany-demo --key cac-test-file --body ./test-file2 --profile cac_test
