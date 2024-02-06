@@ -6,25 +6,42 @@ if [[ $# -eq 0 ]]
     exit 1
 fi
 
-# Location of the AWS IAM Rolesanywhere Credential Helper 
-helper_dir="/Users/johntrapnell/tools"
 # Where the location of the test NPE cert  amd private key are located
 cert_dir="/Users/johntrapnell/settings/Certificates"
 
-region=$(aws configure get region 2>/dev/null)
-acct_num=$(aws sts get-caller-identity --query "Account" --output text 2>/dev/null)
+cert_txt=$(pkcs11-tool --list-objects --type cert | grep -B 1 -A 3 "Certificate for PIV Authentication" 2>/dev/null)
+cert_id=$(echo "${cert_txt}" | awk '/ID:/ {print $2}' 2>/dev/null)
+echo "Cert ID: ${cert_id}"
+serial=$(echo "${cert_txt}" | awk '/serial:/ {print $2}' 2>/dev/null)
+echo "Cert Serial: ${serial}"
+sleep 5
+issuer=$(pkcs11-tool --read-object --type cert --id "${cert_id}" | openssl x509 -inform DER  -text -noout -issuer | grep 'Issuer:' 2>/dev/null)
+#issuer="        Issuer: C=US, O=U.S. Government, OU=DoD, OU=PKI, CN=DOD ID CA-65"
+echo "Issuer: ${issuer}"
+cert_name=$(echo "${issuer}" | awk -F ', ' '{for(i=1; i<=NF; i++) if ($i ~ /^CN=/) print substr($i, 4)}' | awk '{ gsub(/[ -]/, "_"); print }' 2>/dev/null)
+echo "Cert: ${cert_name}"
 
-npe_ta_id=$(aws rolesanywhere list-trust-anchors --query "trustAnchors[?name=='NPE Root CA cert'].trustAnchorId" --output text 2>/dev/null)
-npe_prof_id=$(aws rolesanywhere list-profiles --query "profiles[?name=='npe-client-profile'].profileId" --output text 2>/dev/null)
+#region=$(aws configure get region 2>/dev/null)
+#acct_num=$(aws sts get-caller-identity --query "Account" --output text 2>/dev/null)
+
+npe_ta_arn=$(aws rolesanywhere list-trust-anchors --query "trustAnchors[?name=='NPE Root CA cert'].trustAnchorArn" --output text 2>/dev/null)
+npe_prof_arn=$(aws rolesanywhere list-profiles --query "profiles[?name=='npe-client-profile'].profileArn" --output text 2>/dev/null)
+npe_role_arn=$(aws iam list-roles --query "Roles[?RoleName=='npe-client-role'].Arn" --output text 2>/dev/null)
+echo "NPE Trust: ${npe_ta_arn}"
+echo "NPE Profile: ${npe_prof_arn}"
+echo "NPE Role: ${npe_role_arn}"
 
 echo "" >> $1
 echo "[profile npe_test]" >> $1
-echo "credential_process = ${helper_dir}/aws_signing_helper credential-process --certificate ${cert_dir}/aws-client1-cert.pem --private-key ${cert_dir}/aws-client1-private.pem --trust-anchor-arn arn:aws:rolesanywhere:${region}:${acct_num}:trust-anchor/${npe_ta_id} --profile-arn arn:aws:rolesanywhere:${region}:${acct_num}:profile/${npe_prof_id} --role-arn arn:aws:iam::${acct_num}:role/npe-client-role" >> $1
+echo "credential_process = aws_signing_helper credential-process --certificate ${cert_dir}/aws-client1-cert.pem --private-key ${cert_dir}/aws-client1-private.pem --trust-anchor-arn ${npe_ta_arn} --profile-arn ${npe_prof_arn} --role-arn ${npe_role_arn}" >> $1
 
-cac_ta_id=$(aws rolesanywhere list-trust-anchors --query "trustAnchors[?name=='DoD ID CA 64-65'].trustAnchorId" --output text 2>/dev/null)
-cac_prof_id=$(aws rolesanywhere list-profiles --query "profiles[?name=='standard-user-profile'].profileId" --output text 2>/dev/null)
+cac_ta_arn=$(aws rolesanywhere list-trust-anchors --query "trustAnchors[?name=='DoD ID CA 64-65'].trustAnchorArn" --output text 2>/dev/null)
+cac_prof_arn=$(aws rolesanywhere list-profiles --query "profiles[?name=='standard-user-profile'].profileArn" --output text 2>/dev/null)
+cac_role_arn=$(aws iam list-roles --query "Roles[?RoleName=='standard-user-role'].Arn" --output text 2>/dev/null)
+echo "CAC Trust arn: ${cac_ta_arn}"
+echo "CAC Profile arn: ${cac_prof_arn}"
+echo "CAC Role: ${cac_role_arn}"
 
 echo "" >> $1
 echo "[profile cac_test]" >> $1
-echo "credential_process = ${helper_dir}/aws_signing_helper credential-process --cert-selector 'Key=x509Serial,Value=1634A3' --trust-anchor-arn arn:aws:rolesanywhere:${region}:${acct_num}:trust-anchor/${cac_ta_id} --profile-arn arn:aws:rolesanywhere:${region}:${acct_num}:profile/${cac_prof_id} --role-arn arn:aws:iam::${acct_num}:role/standard-user-role" >> $1
-
+echo "credential_process = aws_signing_helper credential-process --cert-selector 'Key=x509Serial,Value=${serial}' --trust-anchor-arn ${cac_ta_arn} --profile-arn ${cac_prof_arn} --role-arn ${cac_role_arn}" >> $1
